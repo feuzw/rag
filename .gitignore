@@ -168,6 +168,7 @@ scratch/
 .langgraph_api/
 
 .pem
+leeyujinkey.pem
 
 # Model files
 app/models/midm/
