@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+/* 강제로 배경색 적용 */
+html {
+  background: linear-gradient(135deg, #E8D5FF 0%, #FFD5E5 25%, #D5F0FF 50%, #E5FFF0 75%, #FFF0E5 100%) !important;
+  background-size: 400% 400% !important;
+  height: 100% !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  animation: gradient 15s ease infinite;
+}
+
+body {
+  background: linear-gradient(135deg, #E8D5FF 0%, #FFD5E5 25%, #D5F0FF 50%, #E5FFF0 75%, #FFF0E5 100%) !important;
+  background-size: 400% 400% !important;
+  color: #1d1d1f !important;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  line-height: 1.47059 !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.022em !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  min-height: 100vh !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  animation: gradient 15s ease infinite;
+}
+
+#__next {
+  background: transparent !important;
+  min-height: 100vh !important;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* 애니메이션 */
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* 애플 스타일 스크롤바 */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+  background-clip: padding-box;
+}
+
+/* 플레이스홀더 스타일 */
+::placeholder {
+  color: rgba(29, 29, 31, 0.5) !important;
+  opacity: 1;
+}
+
+:-ms-input-placeholder {
+  color: rgba(29, 29, 31, 0.5) !important;
+}
+
+::-ms-input-placeholder {
+  color: rgba(29, 29, 31, 0.5) !important;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 1024px) {
+  .responsive-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: 1rem !important;
+  }
+
+  nav {
+    flex-direction: column !important;
+    gap: 1rem !important;
+    align-items: flex-start !important;
+  }
+}
