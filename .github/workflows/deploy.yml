@@ -64,14 +64,12 @@ jobs:
             if [ -z "$LLM_PROVIDER_VALUE" ]; then
               LLM_PROVIDER_VALUE="openai"
             fi
-            cat > .env << EOF
-POSTGRES_CONNECTION_STRING=${{ secrets.POSTGRES_CONNECTION_STRING }}
-OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-LLM_PROVIDER=${LLM_PROVIDER_VALUE}
-HOST=0.0.0.0
-PORT=8000
-RELOAD=false
-EOF
+            echo "POSTGRES_CONNECTION_STRING=${{ secrets.POSTGRES_CONNECTION_STRING }}" > .env
+            echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+            echo "LLM_PROVIDER=${LLM_PROVIDER_VALUE}" >> .env
+            echo "HOST=0.0.0.0" >> .env
+            echo "PORT=8000" >> .env
+            echo "RELOAD=false" >> .env
             # .env 파일 권한 설정 (보안)
             chmod 600 .env
 

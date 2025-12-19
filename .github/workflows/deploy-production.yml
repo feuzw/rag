@@ -42,14 +42,12 @@ jobs:
             pip install -r app/requirements.txt
 
             # 환경 변수 업데이트
-            cat > .env << EOF
-POSTGRES_CONNECTION_STRING=${{ secrets.POSTGRES_CONNECTION_STRING }}
-OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-LLM_PROVIDER=${{ secrets.LLM_PROVIDER }}
-HOST=0.0.0.0
-PORT=8000
-RELOAD=false
-EOF
+            echo "POSTGRES_CONNECTION_STRING=${{ secrets.POSTGRES_CONNECTION_STRING }}" > .env
+            echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+            echo "LLM_PROVIDER=${{ secrets.LLM_PROVIDER }}" >> .env
+            echo "HOST=0.0.0.0" >> .env
+            echo "PORT=8000" >> .env
+            echo "RELOAD=false" >> .env
 
             # .env 파일 권한 설정 (보안)
             chmod 600 .env
