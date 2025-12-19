@@ -25,7 +25,7 @@ User=$CURRENT_USER
 WorkingDirectory=$APP_DIR
 Environment="PATH=$APP_DIR/venv/bin"
 EnvironmentFile=$APP_DIR/.env
-ExecStart=$APP_DIR/venv/bin/python $APP_DIR/app/main.py
+ExecStart=$APP_DIR/venv/bin/python $APP_DIR/main.py
 Restart=always
 RestartSec=3
 

@@ -23,20 +23,53 @@ jobs:
           timeout: 60s
           command_timeout: 15m
           script: |
+            # 배포 디렉토리 생성
+            mkdir -p ~/rag-app
             cd ~/rag-app
 
-            # 코드 업데이트
-            if [ -d ".git" ]; then
-              git pull origin main
-            else
-              git clone https://github.com/${{ github.repository }} .
+            # 임시 디렉토리에서 전체 저장소 클론
+            TEMP_DIR=$(mktemp -d)
+            cd $TEMP_DIR
+            git clone --depth 1 https://github.com/${{ github.repository }} temp-repo
+
+            # app 폴더와 requirements.txt만 ~/rag-app으로 복사
+            cp -r temp-repo/app/* ~/rag-app/
+            cp temp-repo/requirements.txt ~/rag-app/ 2>/dev/null || echo "requirements.txt가 루트에 없습니다."
+
+            # 정리
+            cd ~
+            rm -rf $TEMP_DIR
+
+            # ~/rag-app으로 이동 (이제 app 폴더의 내용이 루트에 있음)
+            cd ~/rag-app
+
+            # main.py 수정: app.api_server -> api_server (루트 디렉토리 기준)
+            if [ -f "main.py" ]; then
+              # Python 스크립트로 안전하게 수정
+              python3 << 'PYTHON_SCRIPT'
+import re
+
+with open('main.py', 'r', encoding='utf-8') as f:
+    content = f.read()
+
+# app.api_server:app -> api_server:app로 변경
+content = re.sub(r'"app\.api_server:app"', '"api_server:app"', content)
+content = re.sub(r"'app\.api_server:app'", "'api_server:app'", content)
+
+with open('main.py', 'w', encoding='utf-8') as f:
+    f.write(content)
+
+print("✅ main.py 수정 완료")
+PYTHON_SCRIPT
             fi
 
             # 가상환경 생성/업데이트
-            python3 -m venv venv
+            if [ ! -d "venv" ]; then
+              python3 -m venv venv
+            fi
             source venv/bin/activate
             pip install --upgrade pip
-            pip install -r app/requirements.txt
+            pip install -r requirements.txt
 
             # 환경 변수 업데이트
             LLM_PROVIDER_VALUE="${{ secrets.LLM_PROVIDER }}"
@@ -55,7 +88,7 @@ EOF
             chmod 600 .env
 
             # 기존 프로세스 종료 및 재시작 (Systemd 사용)
-            sudo systemctl restart rag-api
+            sudo systemctl restart rag-api || echo "⚠️ 서비스가 아직 설정되지 않았습니다. 수동으로 설정하세요."
 
             # 서비스 시작 대기
             sleep 5
@@ -64,8 +97,8 @@ EOF
             if curl -f http://localhost:8000/health; then
               echo "✅ 배포 성공! 서비스가 정상 작동 중입니다."
             else
-              echo "❌ 배포 실패! 서비스가 응답하지 않습니다."
-              sudo journalctl -u rag-api -n 50
+              echo "⚠️ 헬스 체크 실패. 서비스 상태를 확인하세요."
+              sudo systemctl status rag-api || echo "서비스가 설정되지 않았습니다."
               exit 1
             fi
 

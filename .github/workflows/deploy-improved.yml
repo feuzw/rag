@@ -1,0 +1,109 @@
+name: Deploy app to EC2 (Improved)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'            # app 폴더 변경시에만 실행
+      - 'requirements.txt'  # requirements.txt 변경시에도 실행
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: app   # 모든 run 명령이 app/ 기준으로 실행
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          mkdir -p "$HOME/.ssh"
+          echo "${{ secrets.EC2_SSH_KEY }}" > "$HOME/.ssh/id_rsa"
+          chmod 600 "$HOME/.ssh/id_rsa"
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> "$HOME/.ssh/known_hosts"
+
+      - name: Deploy to EC2
+        run: |
+          # rsync로 app 폴더만 EC2에 동기화
+          rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='__pycache__' \
+            --exclude='*.pyc' \
+            --exclude='venv' \
+            . ubuntu@${{ secrets.EC2_HOST }}:/home/ubuntu/rag-app/
+
+          # requirements.txt도 복사 (루트에 있으면)
+          if [ -f "../requirements.txt" ]; then
+            scp ../requirements.txt ubuntu@${{ secrets.EC2_HOST }}:/home/ubuntu/rag-app/
+          fi
+
+      - name: Setup and restart service on EC2
+        run: |
+          ssh ubuntu@${{ secrets.EC2_HOST }} << 'ENDSSH'
+            cd ~/rag-app
+
+            # 가상환경 생성/업데이트
+            if [ ! -d "venv" ]; then
+              python3 -m venv venv
+            fi
+            source venv/bin/activate
+            pip install --upgrade pip
+            pip install -r requirements.txt
+
+            # 환경 변수 업데이트
+            LLM_PROVIDER_VALUE="${{ secrets.LLM_PROVIDER }}"
+            if [ -z "$LLM_PROVIDER_VALUE" ]; then
+              LLM_PROVIDER_VALUE="openai"
+            fi
+            cat > .env << EOF
+          POSTGRES_CONNECTION_STRING=${{ secrets.POSTGRES_CONNECTION_STRING }}
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          LLM_PROVIDER=${LLM_PROVIDER_VALUE}
+          HOST=0.0.0.0
+          PORT=8000
+          RELOAD=false
+          EOF
+            chmod 600 .env
+
+            # main.py 수정: app.api_server -> api_server
+            if [ -f "main.py" ]; then
+              python3 << 'PYTHON_SCRIPT'
+          import re
+          with open('main.py', 'r', encoding='utf-8') as f:
+              content = f.read()
+          content = re.sub(r'"app\.api_server:app"', '"api_server:app"', content)
+          content = re.sub(r"'app\.api_server:app'", "'api_server:app'", content)
+          with open('main.py', 'w', encoding='utf-8') as f:
+              f.write(content)
+          print("✅ main.py 수정 완료")
+          PYTHON_SCRIPT
+            fi
+
+            # Systemd 서비스 재시작
+            sudo systemctl restart rag-api || echo "⚠️ 서비스가 아직 설정되지 않았습니다."
+
+            # 헬스 체크
+            sleep 5
+            if curl -f http://localhost:8000/health; then
+              echo "✅ 배포 성공!"
+            else
+              echo "❌ 배포 실패!"
+              sudo journalctl -u rag-api -n 50
+              exit 1
+            fi
+          ENDSSH
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "🎉 배포 성공!"
+          else
+            echo "⚠️ 배포 실패! 로그를 확인하세요."
+          fi
+
