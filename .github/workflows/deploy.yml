@@ -45,22 +45,10 @@ jobs:
 
             # main.py 수정: app.api_server -> api_server (루트 디렉토리 기준)
             if [ -f "main.py" ]; then
-              # Python 스크립트로 안전하게 수정
-              python3 << 'PYTHON_SCRIPT'
-import re
-
-with open('main.py', 'r', encoding='utf-8') as f:
-    content = f.read()
-
-# app.api_server:app -> api_server:app로 변경
-content = re.sub(r'"app\.api_server:app"', '"api_server:app"', content)
-content = re.sub(r"'app\.api_server:app'", "'api_server:app'", content)
-
-with open('main.py', 'w', encoding='utf-8') as f:
-    f.write(content)
-
-print("✅ main.py 수정 완료")
-PYTHON_SCRIPT
+              # sed를 사용하여 안전하게 수정
+              sed -i 's/"app\.api_server:app"/"api_server:app"/g' main.py || true
+              sed -i "s/'app\.api_server:app'/'api_server:app'/g" main.py || true
+              echo "✅ main.py 수정 완료"
             fi
 
             # 가상환경 생성/업데이트
