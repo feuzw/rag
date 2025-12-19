@@ -58,15 +58,24 @@ jobs:
             fi
 
             # 가상환경 생성/업데이트
-            if [ ! -d "venv" ]; then
-              python3 -m venv venv || {
+            if [ ! -d "venv" ] || [ ! -f "venv/bin/activate" ]; then
+              echo "📦 가상환경 생성 중..."
+              python3 -m venv venv
+              if [ ! -f "venv/bin/activate" ]; then
                 echo "⚠️ venv 생성 실패, python3-venv 재설치 시도"
                 sudo apt-get install -y python3-venv
                 python3 -m venv venv
-              }
+                if [ ! -f "venv/bin/activate" ]; then
+                  echo "❌ venv 생성 실패"
+                  exit 1
+                fi
+              fi
+              echo "✅ 가상환경 생성 완료"
             fi
             source venv/bin/activate || {
               echo "❌ venv 활성화 실패"
+              echo "   venv 디렉토리 확인:"
+              ls -la venv/ || echo "venv 디렉토리가 없습니다"
               exit 1
             }
             pip install --upgrade pip
