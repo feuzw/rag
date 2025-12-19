@@ -97,8 +97,14 @@ export default function Home() {
           break;
       }
 
+      // 프로덕션에서는 /api 프록시 사용, 개발 환경에서는 직접 URL 사용
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ||
+        (typeof window !== 'undefined' && window.location.hostname === 'localhost'
+          ? 'http://localhost:8000'
+          : '/api');
+
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}${endpoint}`,
+        `${apiBaseUrl}${endpoint}`,
         {
           method: "POST",
           headers: {

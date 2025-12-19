@@ -5,6 +5,14 @@ const nextConfig: NextConfig = {
   output: "standalone",
   turbopack: {},
   /* config options here */
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${process.env.API_URL || 'http://13.125.247.202:8000'}/:path*`,
+      },
+    ];
+  },
 };
 
 const pwaConfig = withPWA({
