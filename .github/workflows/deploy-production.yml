@@ -1,0 +1,82 @@
+name: Deploy to EC2 (Production)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to EC2 (Production)
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # 프로덕션 디렉토리로 이동
+            cd /opt/rag-app
+
+            # 코드 업데이트
+            if [ -d ".git" ]; then
+              git pull origin main
+            else
+              echo "❌ 오류: /opt/rag-app에 Git 저장소가 없습니다."
+              echo "   먼저 초기 설정을 실행하세요: scripts/setup_ec2_production.sh"
+              exit 1
+            fi
+
+            # 소유권 확인
+            sudo chown -R $USER:$USER /opt/rag-app
+
+            # 가상환경 생성/업데이트
+            python3 -m venv venv
+            source venv/bin/activate
+            pip install --upgrade pip
+            pip install -r app/requirements.txt
+
+            # 환경 변수 업데이트
+            cat > .env << EOF
+POSTGRES_CONNECTION_STRING=${{ secrets.POSTGRES_CONNECTION_STRING }}
+OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+LLM_PROVIDER=${{ secrets.LLM_PROVIDER }}
+HOST=0.0.0.0
+PORT=8000
+RELOAD=false
+EOF
+
+            # .env 파일 권한 설정 (보안)
+            chmod 600 .env
+
+            # Systemd 서비스 재시작
+            sudo systemctl restart rag-api
+
+            # 서비스 시작 대기
+            sleep 5
+
+            # 헬스 체크
+            if curl -f http://localhost:8000/health; then
+              echo "✅ 배포 성공! 서비스가 정상 작동 중입니다."
+              echo "📍 위치: /opt/rag-app"
+            else
+              echo "❌ 배포 실패! 서비스가 응답하지 않습니다."
+              sudo journalctl -u rag-api -n 50
+              exit 1
+            fi
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "🎉 프로덕션 배포 성공!"
+            echo "📍 배포 위치: /opt/rag-app"
+          else
+            echo "⚠️ 배포 실패! 로그를 확인하세요."
+          fi
+

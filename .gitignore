@@ -169,6 +169,7 @@ scratch/
 
 .pem
 leeyujinkey.pem
+leeyujinragkey.pem
 
 # Model files
 app/models/midm/
