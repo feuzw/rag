@@ -97,11 +97,15 @@ export default function Home() {
           break;
       }
 
-      // 프로덕션에서는 /api 프록시 사용, 개발 환경에서는 직접 URL 사용
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ||
-        (typeof window !== 'undefined' && window.location.hostname === 'localhost'
-          ? 'http://localhost:8000'
-          : '/api');
+      // 프로덕션에서는 항상 /api 프록시 사용 (HTTPS → HTTP Mixed Content 문제 해결)
+      // 개발 환경에서만 직접 URL 사용
+      const isDevelopment = typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+      // 프로덕션에서는 절대 HTTP URL을 사용하지 않음 (Mixed Content 차단 방지)
+      const apiBaseUrl = isDevelopment
+        ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
+        : '/api'; // 프로덕션: Next.js 서버 사이드 프록시 사용
 
       const response = await fetch(
         `${apiBaseUrl}${endpoint}`,
