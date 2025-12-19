@@ -3,7 +3,7 @@ name: Deploy to EC2 (Production)
 on:
   push:
     branches: [main]
-  workflow_dispatch:  # 수동 실행 가능ㅁㅁ
+  workflow_dispatch:  # 수동 실행 가능
 
 jobs:
   deploy:
@@ -19,53 +19,88 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          timeout: 60s
+          command_timeout: 15m
           script: |
-            # 프로덕션 디렉토리로 이동
-            cd /opt/rag-app
+            # 필수 패키지 설치 (python3-venv)
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq python3-venv git curl || true
 
-            # 코드 업데이트
-            if [ -d ".git" ]; then
-              git pull origin main
+            # 배포 디렉토리 생성
+            mkdir -p ~/rag-app
+            cd ~/rag-app
+
+            # 임시 디렉토리에서 전체 저장소 클론
+            TEMP_DIR=$(mktemp -d)
+            cd $TEMP_DIR
+            git clone --depth 1 https://github.com/${{ github.repository }}.git temp-repo
+
+            # app 폴더와 requirements.txt만 ~/rag-app으로 복사
+            if [ -d "temp-repo/app" ]; then
+              cp -r temp-repo/app/* ~/rag-app/
             else
-              echo "❌ 오류: /opt/rag-app에 Git 저장소가 없습니다."
-              echo "   먼저 초기 설정을 실행하세요: scripts/setup_ec2_production.sh"
+              echo "❌ app 폴더를 찾을 수 없습니다."
               exit 1
             fi
+            cp temp-repo/requirements.txt ~/rag-app/ 2>/dev/null || echo "requirements.txt가 루트에 없습니다."
 
-            # 소유권 확인
-            sudo chown -R $USER:$USER /opt/rag-app
+            # 정리
+            cd ~
+            rm -rf $TEMP_DIR
+
+            # main.py 수정: app.api_server -> api_server (루트 디렉토리 기준)
+            if [ -f "main.py" ]; then
+              sed -i 's/"app\.api_server:app"/"api_server:app"/g' main.py || true
+              sed -i "s/'app\.api_server:app'/'api_server:app'/g" main.py || true
+              echo "✅ main.py 수정 완료"
+            fi
 
             # 가상환경 생성/업데이트
-            python3 -m venv venv
-            source venv/bin/activate
+            if [ ! -d "venv" ]; then
+              python3 -m venv venv || {
+                echo "⚠️ venv 생성 실패, python3-venv 재설치 시도"
+                sudo apt-get install -y python3-venv
+                python3 -m venv venv
+              }
+            fi
+            source venv/bin/activate || {
+              echo "❌ venv 활성화 실패"
+              exit 1
+            }
             pip install --upgrade pip
-            pip install -r app/requirements.txt
+            pip install -r requirements.txt
 
             # 환경 변수 업데이트
+            LLM_PROVIDER_VALUE="${{ secrets.LLM_PROVIDER }}"
+            if [ -z "$LLM_PROVIDER_VALUE" ]; then
+              LLM_PROVIDER_VALUE="openai"
+            fi
             echo "POSTGRES_CONNECTION_STRING=${{ secrets.POSTGRES_CONNECTION_STRING }}" > .env
             echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
-            echo "LLM_PROVIDER=${{ secrets.LLM_PROVIDER }}" >> .env
+            echo "LLM_PROVIDER=${LLM_PROVIDER_VALUE}" >> .env
             echo "HOST=0.0.0.0" >> .env
             echo "PORT=8000" >> .env
             echo "RELOAD=false" >> .env
-
-            # .env 파일 권한 설정 (보안)
             chmod 600 .env
 
-            # Systemd 서비스 재시작
-            sudo systemctl restart rag-api
-
-            # 서비스 시작 대기
-            sleep 5
-
-            # 헬스 체크
-            if curl -f http://localhost:8000/health; then
-              echo "✅ 배포 성공! 서비스가 정상 작동 중입니다."
-              echo "📍 위치: /opt/rag-app"
+            # Systemd 서비스 재시작 (없으면 경고만)
+            if systemctl list-units --type=service --all | grep -q rag-api.service; then
+              sudo systemctl restart rag-api
+              sleep 5
+              if curl -f http://localhost:8000/health; then
+                echo "✅ 배포 성공! 서비스가 정상 작동 중입니다."
+                echo "📍 위치: ~/rag-app"
+              else
+                echo "⚠️ 헬스 체크 실패. 서비스 상태를 확인하세요."
+                sudo journalctl -u rag-api -n 50 || true
+                exit 1
+              fi
             else
-              echo "❌ 배포 실패! 서비스가 응답하지 않습니다."
-              sudo journalctl -u rag-api -n 50
-              exit 1
+              echo "⚠️ Systemd 서비스가 설정되지 않았습니다."
+              echo "   파일 배포는 완료되었습니다."
+              echo "   서비스를 설정하려면: scripts/setup_systemd.sh 실행"
+              echo "✅ 파일 배포 완료 (서비스 설정 필요)"
             fi
 
       - name: Notify deployment status
@@ -73,7 +108,7 @@ jobs:
         run: |
           if [ ${{ job.status }} == 'success' ]; then
             echo "🎉 프로덕션 배포 성공!"
-            echo "📍 배포 위치: /opt/rag-app"
+            echo "📍 배포 위치: ~/rag-app"
           else
             echo "⚠️ 배포 실패! 로그를 확인하세요."
           fi
