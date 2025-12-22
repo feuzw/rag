@@ -10,15 +10,38 @@ from langchain_openai import ChatOpenAI
 import psycopg2
 from sqlalchemy.exc import DataError
 
-from .app import get_vector_store, test_pgvector, wait_for_postgres
-from .models import (
-    get_llm_provider,
-    set_llm_provider,
-    LLMProvider,
-    ChatMidm,
-)
-from .router.rag_router import router as rag_router
-from .router.chat_router import router as chat_router
+# 환경에 따라 상대/절대 import 선택
+# 로컬: app/ 폴더가 있으면 상대 import 사용
+# 우분투: app/ 폴더가 없고 루트에 파일들이 직접 있으면 절대 import 사용
+try:
+    from .app import get_vector_store, test_pgvector, wait_for_postgres
+    from .models import (
+        get_llm_provider,
+        set_llm_provider,
+        LLMProvider,
+    )
+    # ChatMidm은 선택적 import (우분투에서는 사용하지 않을 수 있음)
+    try:
+        from .models import ChatMidm
+    except ImportError:
+        ChatMidm = None
+    from .router.rag_router import router as rag_router
+    from .router.chat_router import router as chat_router
+except ImportError:
+    # 우분투 환경: 절대 import 사용
+    from app import get_vector_store, test_pgvector, wait_for_postgres
+    from models import (
+        get_llm_provider,
+        set_llm_provider,
+        LLMProvider,
+    )
+    # ChatMidm은 선택적 import (우분투에서는 사용하지 않을 수 있음)
+    try:
+        from models import ChatMidm
+    except ImportError:
+        ChatMidm = None
+    from router.rag_router import router as rag_router
+    from router.chat_router import router as chat_router
 
 app = FastAPI(title="LangChain RAG API", version="1.0.0")
 
@@ -170,20 +193,26 @@ async def startup_event():
 
             if llm_provider == "midm":
                 # Mi:dm 모델 사용
-                try:
-                    local_model_dir = os.getenv("LOCAL_MODEL_DIR")
-                    midm_model = ChatMidm(
-                        model_path=local_model_dir,  # None이면 기본 경로 사용
-                        temperature=0.7,
-                        max_tokens=512,
-                    )
-                    provider.set_llm(midm_model)
-                    print(f"✅ Mi:dm 모델 초기화 완료! (경로: {local_model_dir or '기본 경로'})")
-                    _llm_initialized = True
-                except Exception as e:
-                    print(f"⚠️  Mi:dm 모델 초기화 실패: {e}")
-                    print("   채팅 기능은 사용할 수 없지만 검색 기능은 정상 작동합니다.")
-            else:
+                if ChatMidm is None:
+                    print("⚠️  ChatMidm을 import할 수 없습니다. OpenAI를 사용합니다.")
+                    llm_provider = "openai"
+                else:
+                    try:
+                        local_model_dir = os.getenv("LOCAL_MODEL_DIR")
+                        midm_model = ChatMidm(
+                            model_path=local_model_dir,  # None이면 기본 경로 사용
+                            temperature=0.7,
+                            max_tokens=512,
+                        )
+                        provider.set_llm(midm_model)
+                        print(f"✅ Mi:dm 모델 초기화 완료! (경로: {local_model_dir or '기본 경로'})")
+                        _llm_initialized = True
+                    except Exception as e:
+                        print(f"⚠️  Mi:dm 모델 초기화 실패: {e}")
+                        print("   채팅 기능은 사용할 수 없지만 검색 기능은 정상 작동합니다.")
+
+            # OpenAI 사용 (midm 실패 시 또는 기본값)
+            if llm_provider != "midm" or ChatMidm is None or not _llm_initialized:
                 # 기본 LLM (OpenAI) 초기화 시도
                 try:
                     default_llm = _initialize_default_llm()
@@ -268,7 +297,10 @@ async def add_document(request: AddDocumentRequest):
         추가 결과.
     """
     try:
-        from .service.embedding_ingest_service import add_document as add_doc_service
+        try:
+            from .service.embedding_ingest_service import add_document as add_doc_service
+        except ImportError:
+            from service.embedding_ingest_service import add_document as add_doc_service
         return add_doc_service(request.content, request.metadata)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -285,7 +317,10 @@ async def add_documents(request: AddDocumentsRequest):
         추가 결과.
     """
     try:
-        from .service.embedding_ingest_service import add_documents as add_docs_service
+        try:
+            from .service.embedding_ingest_service import add_documents as add_docs_service
+        except ImportError:
+            from service.embedding_ingest_service import add_documents as add_docs_service
         documents = [
             {"content": doc.content, "metadata": doc.metadata or {}}
             for doc in request.documents
