@@ -5,8 +5,19 @@ import sys
 from pathlib import Path
 
 # 프로젝트 루트를 Python path에 추가 (상대 import를 위해)
-app_dir = Path(__file__).parent.resolve()
-project_root = app_dir.parent.resolve()
+# 로컬: app/main.py -> project_root는 rag/
+# 우분투: app/main.py가 없고 루트에 main.py가 있거나, app/ 폴더가 없을 수 있음
+current_file = Path(__file__).resolve()
+current_dir = current_file.parent
+
+# app/main.py에서 실행되는 경우 (로컬)
+if current_dir.name == "app" and (current_dir.parent / "app").exists():
+    app_dir = current_dir
+    project_root = app_dir.parent.resolve()
+# 프로젝트 루트에서 실행되는 경우 (우분투: app/ 폴더 없음)
+else:
+    project_root = current_dir.resolve()
+    app_dir = project_root  # 우분투에서는 app 폴더가 없으므로 루트가 app_dir
 
 # 현재 작업 디렉토리를 프로젝트 루트로 변경 (app 패키지 인식 문제 해결)
 os.chdir(project_root)
@@ -60,25 +71,31 @@ if __name__ == "__main__":
     print(f"   API 문서: http://localhost:{port}/docs\n")
 
     # uvicorn 실행
-    # 프로젝트 루트로 작업 디렉토리가 변경되었으므로 app.api_server:app 경로 사용 가능
-    # app 디렉토리 확인
-    app_init_file = project_root / "app" / "__init__.py"
-    if not app_init_file.exists():
-        # app 디렉토리가 있는지 확인 (app_dir는 이미 존재함)
-        if app_dir.exists():
-            print(f"⚠️  경고: app/__init__.py 파일이 없습니다. 생성 중...")
-            app_init_file.parent.mkdir(parents=True, exist_ok=True)
-            app_init_file.touch()
-        else:
-            print(f"❌ 오류: app 디렉토리를 찾을 수 없습니다: {app_dir}")
-            print(f"   프로젝트 루트: {project_root}")
-            sys.exit(1)
+    # 우분투: app/ 폴더가 없고 루트에 파일들이 직접 있음
+    # 로컬: app/ 폴더가 있음
+
+    # app 폴더가 있는지 확인
+    app_folder = project_root / "app"
+    if app_folder.exists() and (app_folder / "api_server.py").exists():
+        # 로컬 환경: app/ 폴더가 있음
+        app_module_path = "app.api_server:app"
+        reload_dir = str(app_folder)
+    elif (project_root / "api_server.py").exists():
+        # 우분투 환경: app/ 폴더가 없고 루트에 파일들이 직접 있음
+        # api_server를 직접 import
+        app_module_path = "api_server:app"
+        reload_dir = str(project_root)
+    else:
+        print(f"❌ 오류: api_server.py를 찾을 수 없습니다.")
+        print(f"   프로젝트 루트: {project_root}")
+        print(f"   app 폴더 존재: {app_folder.exists()}")
+        sys.exit(1)
 
     uvicorn.run(
-        "app.api_server:app",
+        app_module_path,
         host=host,
         port=port,
         reload=reload,
-        reload_dirs=[str(app_dir)] if reload else None,
+        reload_dirs=[reload_dir] if reload else None,
     )
 
