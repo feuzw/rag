@@ -31,31 +31,18 @@ jobs:
             mkdir -p ~/rag-app
             cd ~/rag-app
 
-            # 임시 디렉토리에서 전체 저장소 클론
-            TEMP_DIR=$(mktemp -d)
-            cd $TEMP_DIR
-            git clone --depth 1 https://github.com/${{ github.repository }}.git temp-repo
-
-            # app 폴더와 requirements.txt만 ~/rag-app으로 복사
-            if [ -d "temp-repo/app" ]; then
-              cp -r temp-repo/app/* ~/rag-app/
+            # Git 저장소가 이미 있으면 pull, 없으면 clone
+            if [ -d ".git" ]; then
+              echo "📥 기존 저장소에서 업데이트 중..."
+              git pull origin main || git pull origin master
             else
-              echo "❌ app 폴더를 찾을 수 없습니다."
-              exit 1
+              echo "📥 저장소 클론 중..."
+              git clone --depth 1 https://github.com/${{ github.repository }}.git .
             fi
-            cp temp-repo/requirements.txt ~/rag-app/ 2>/dev/null || echo "requirements.txt가 루트에 없습니다."
 
-            # 정리
-            cd ~
-            rm -rf $TEMP_DIR
-
-            # main.py 수정: app.api_server -> api_server (루트 디렉토리 기준)
-            if [ -f "main.py" ]; then
-              # sed를 사용하여 안전하게 수정
-              sed -i 's/"app\.api_server:app"/"api_server:app"/g' main.py || true
-              sed -i "s/'app\.api_server:app'/'api_server:app'/g" main.py || true
-              echo "✅ main.py 수정 완료"
-            fi
+            # 최신 코드로 업데이트
+            git fetch origin
+            git reset --hard origin/main || git reset --hard origin/master
 
             # 가상환경 생성/업데이트
             if [ ! -d "venv" ] || [ ! -f "venv/bin/activate" ]; then

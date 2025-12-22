@@ -62,9 +62,17 @@ if __name__ == "__main__":
     # uvicorn 실행
     # 프로젝트 루트로 작업 디렉토리가 변경되었으므로 app.api_server:app 경로 사용 가능
     # app 디렉토리 확인
-    if not (project_root / "app" / "__init__.py").exists():
-        print(f"⚠️  경고: app/__init__.py 파일이 없습니다. 생성 중...")
-        (project_root / "app" / "__init__.py").touch()
+    app_init_file = project_root / "app" / "__init__.py"
+    if not app_init_file.exists():
+        # app 디렉토리가 있는지 확인 (app_dir는 이미 존재함)
+        if app_dir.exists():
+            print(f"⚠️  경고: app/__init__.py 파일이 없습니다. 생성 중...")
+            app_init_file.parent.mkdir(parents=True, exist_ok=True)
+            app_init_file.touch()
+        else:
+            print(f"❌ 오류: app 디렉토리를 찾을 수 없습니다: {app_dir}")
+            print(f"   프로젝트 루트: {project_root}")
+            sys.exit(1)
 
     uvicorn.run(
         "app.api_server:app",
