@@ -5,9 +5,15 @@ import sys
 from pathlib import Path
 
 # 프로젝트 루트를 Python path에 추가 (상대 import를 위해)
-app_dir = Path(__file__).parent
-project_root = app_dir.parent
-sys.path.insert(0, str(project_root))
+app_dir = Path(__file__).parent.resolve()
+project_root = app_dir.parent.resolve()
+
+# 현재 작업 디렉토리를 프로젝트 루트로 변경 (app 패키지 인식 문제 해결)
+os.chdir(project_root)
+
+# 프로젝트 루트를 Python path에 추가
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 # .env 파일 로드 (선택사항)
 try:
@@ -54,11 +60,14 @@ if __name__ == "__main__":
     print(f"   API 문서: http://localhost:{port}/docs\n")
 
     # uvicorn 실행
-    # 직접 import하여 app 객체를 가져옴 (상대 import 문제 해결)
-    from app.api_server import app
+    # 프로젝트 루트로 작업 디렉토리가 변경되었으므로 app.api_server:app 경로 사용 가능
+    # app 디렉토리 확인
+    if not (project_root / "app" / "__init__.py").exists():
+        print(f"⚠️  경고: app/__init__.py 파일이 없습니다. 생성 중...")
+        (project_root / "app" / "__init__.py").touch()
 
     uvicorn.run(
-        app,
+        "app.api_server:app",
         host=host,
         port=port,
         reload=reload,
