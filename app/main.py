@@ -54,9 +54,11 @@ if __name__ == "__main__":
     print(f"   API 문서: http://localhost:{port}/docs\n")
 
     # uvicorn 실행
-    # app.api_server:app 형태로 모듈 경로 지정 (상대 import가 작동하도록)
+    # 직접 import하여 app 객체를 가져옴 (상대 import 문제 해결)
+    from app.api_server import app
+
     uvicorn.run(
-        "app.api_server:app",
+        app,
         host=host,
         port=port,
         reload=reload,
