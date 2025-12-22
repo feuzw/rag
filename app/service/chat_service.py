@@ -10,7 +10,16 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 
-from ..models.midm_chat_model import load_midm_model
+# 환경에 따라 상대/절대 import 선택
+try:
+    from ..models.midm_chat_model import load_midm_model
+except ImportError:
+    # 우분투 환경: 절대 import 사용 (선택적)
+    try:
+        from models.midm_chat_model import load_midm_model
+    except ImportError:
+        # 우분투에서는 LLM을 사용하지 않으므로 None으로 설정
+        load_midm_model = None
 
 
 def get_chat_model(model_path: str = None):

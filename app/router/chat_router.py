@@ -9,7 +9,12 @@ POST /api/chat
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from ..service.chat_service import get_chat_model, chat_with_model
+# 환경에 따라 상대/절대 import 선택
+try:
+    from ..service.chat_service import get_chat_model, chat_with_model
+except ImportError:
+    # 우분투 환경: 절대 import 사용
+    from service.chat_service import get_chat_model, chat_with_model
 
 router = APIRouter(tags=["chat"])
 

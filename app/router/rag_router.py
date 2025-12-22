@@ -14,8 +14,14 @@ from pydantic import BaseModel
 import psycopg2
 from sqlalchemy.exc import DataError
 
-from ..service.rag_service import invoke_rag, search_with_rag
-from ..models import get_llm
+# 환경에 따라 상대/절대 import 선택
+try:
+    from ..service.rag_service import invoke_rag, search_with_rag
+    from ..models import get_llm
+except ImportError:
+    # 우분투 환경: 절대 import 사용
+    from service.rag_service import invoke_rag, search_with_rag
+    from models import get_llm
 
 router = APIRouter(tags=["rag"])
 

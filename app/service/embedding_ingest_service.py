@@ -10,7 +10,12 @@ embedding_ingest_service.py 학습 관련 서비스
 
 from langchain_core.documents import Document
 
-from ..app import get_vector_store
+# 환경에 따라 상대/절대 import 선택
+try:
+    from ..app import get_vector_store
+except ImportError:
+    # 우분투 환경: 절대 import 사용
+    from app import get_vector_store
 
 # 전역 변수
 _vector_store = None

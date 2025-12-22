@@ -12,8 +12,14 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 
-from ..app import get_vector_store
-from ..models import get_llm
+# 환경에 따라 상대/절대 import 선택
+try:
+    from ..app import get_vector_store
+    from ..models import get_llm
+except ImportError:
+    # 우분투 환경: 절대 import 사용
+    from app import get_vector_store
+    from models import get_llm
 
 # 전역 변수
 _vector_store = None
