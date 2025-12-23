@@ -102,14 +102,28 @@ export default function Home() {
         (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
       // API URL 결정
-      // 1. 환경 변수가 있으면 사용 (프로덕션에서 EC2 URL 설정)
+      // 1. 환경 변수가 있으면 사용 (프로덕션에서 설정)
       // 2. 개발 환경이면 localhost
-      // 3. 프로덕션이고 환경 변수가 없으면 /api 프록시 사용 (Next.js rewrites)
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL
-        ? process.env.NEXT_PUBLIC_API_URL
-        : isDevelopment
-          ? 'http://localhost:8000'
-          : '/api'; // 프로덕션: Next.js 서버 사이드 프록시 사용 (NEXT_PUBLIC_API_URL 설정 필요)
+      // 3. 프로덕션에서 환경 변수가 없으면:
+      //    - 현재 도메인 기반으로 api 서브도메인 생성 (예: www.example.com -> api.example.com)
+      //    - 또는 /api 프록시 사용 (Next.js rewrites)
+      let apiBaseUrl;
+      if (process.env.NEXT_PUBLIC_API_URL) {
+        apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
+      } else if (isDevelopment) {
+        apiBaseUrl = 'http://localhost:8000';
+      } else {
+        // 프로덕션: 현재 호스트 기반으로 API 서브도메인 생성
+        const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
+        if (currentHost && !currentHost.startsWith('localhost')) {
+          // www.example.com -> api.example.com
+          const apiHost = currentHost.replace(/^(www\.)?/, 'api.');
+          apiBaseUrl = `http://${apiHost}:8000`;
+        } else {
+          // fallback: Next.js rewrites 사용
+          apiBaseUrl = '/api';
+        }
+      }
 
       const response = await fetch(
         `${apiBaseUrl}${endpoint}`,
