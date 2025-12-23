@@ -102,39 +102,45 @@ export default function Home() {
         (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
       // API URL 결정
-      // 1. 환경 변수가 있으면 사용 (프로덕션에서 설정)
-      // 2. 개발 환경이면 localhost
-      // 3. 프로덕션에서 환경 변수가 없으면:
-      //    - 현재 도메인 기반으로 api 서브도메인 생성 (예: www.example.com -> api.example.com)
-      //    - 또는 /api 프록시 사용 (Next.js rewrites)
+      // Mixed Content 문제 방지: HTTPS 사이트에서는 HTTPS 또는 서버 사이드 프록시 사용
       let apiBaseUrl;
       if (process.env.NEXT_PUBLIC_API_URL) {
         apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
       } else if (isDevelopment) {
         apiBaseUrl = 'http://localhost:8000';
       } else {
-        // 프로덕션: 현재 호스트 기반으로 API 서브도메인 생성
-        const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
-        if (currentHost && !currentHost.startsWith('localhost')) {
-          // www.example.com -> api.example.com
-          const apiHost = currentHost.replace(/^(www\.)?/, 'api.');
-          apiBaseUrl = `http://${apiHost}:8000`;
-        } else {
-          // fallback: Next.js rewrites 사용
-          apiBaseUrl = '/api';
-        }
+        // 프로덕션: Mixed Content 문제를 피하기 위해 Next.js rewrites 사용
+        // rewrites는 서버 사이드에서 실행되므로 HTTPS → HTTP 문제 없음
+        apiBaseUrl = '/api';
       }
 
-      const response = await fetch(
-        `${apiBaseUrl}${endpoint}`,
-        {
+      // 디버깅: 실제 요청 URL 로그
+      const requestUrl = `${apiBaseUrl}${endpoint}`;
+      console.log('API 요청:', requestUrl, requestBody);
+
+      let response;
+      try {
+        response = await fetch(requestUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(requestBody),
+        });
+      } catch (fetchError) {
+        // 네트워크 오류 (CORS, Mixed Content, 연결 실패 등)
+        console.error('Fetch 오류:', fetchError);
+        const errorMsg = fetchError instanceof Error
+          ? fetchError.message
+          : '네트워크 연결에 실패했습니다.';
+
+        // Mixed Content 오류인지 확인
+        if (errorMsg.includes('Mixed Content') || errorMsg.includes('blocked')) {
+          throw new Error('HTTPS 사이트에서 HTTP API를 호출할 수 없습니다. Vercel 환경 변수에 NEXT_PUBLIC_API_URL을 설정하거나 Next.js rewrites를 사용하세요.');
         }
-      );
+
+        throw new Error(`연결 실패: ${errorMsg}. API 서버가 실행 중인지 확인하세요.`);
+      }
 
       if (!response.ok) {
         // 서버에서 보낸 에러 메시지 파싱
