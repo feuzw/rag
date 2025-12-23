@@ -27,7 +27,7 @@ try:
         ChatMidm = None
     from .router.rag_router import router as rag_router
     from .router.chat_router import router as chat_router
-except ImportError:
+except ImportError as e:
     # 우분투 환경: 절대 import 사용
     from app import get_vector_store, test_pgvector, wait_for_postgres
     from models import (
@@ -40,8 +40,14 @@ except ImportError:
         from models import ChatMidm
     except ImportError:
         ChatMidm = None
-    from router.rag_router import router as rag_router
-    from router.chat_router import router as chat_router
+    try:
+        from router.rag_router import router as rag_router
+        from router.chat_router import router as chat_router
+    except ImportError as router_error:
+        print(f"⚠️ 라우터 import 실패: {router_error}")
+        print("라우터 없이 기본 엔드포인트만 사용합니다.")
+        rag_router = None
+        chat_router = None
 
 app = FastAPI(title="LangChain RAG API", version="1.0.0")
 
@@ -55,8 +61,17 @@ app.add_middleware(
 )
 
 # 라우터 등록
-app.include_router(rag_router)
-app.include_router(chat_router)
+if rag_router:
+    app.include_router(rag_router)
+    print("✅ RAG 라우터 등록 완료")
+else:
+    print("⚠️ RAG 라우터를 등록할 수 없습니다.")
+
+if chat_router:
+    app.include_router(chat_router)
+    print("✅ Chat 라우터 등록 완료")
+else:
+    print("⚠️ Chat 라우터를 등록할 수 없습니다.")
 
 
 # 요청/응답 모델
