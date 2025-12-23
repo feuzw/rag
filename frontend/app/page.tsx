@@ -116,7 +116,12 @@ export default function Home() {
 
       // 디버깅: 실제 요청 URL 로그
       const requestUrl = `${apiBaseUrl}${endpoint}`;
-      console.log('API 요청:', requestUrl, requestBody);
+      console.log('🔍 API 요청 디버깅 정보:');
+      console.log('  - API Base URL:', apiBaseUrl);
+      console.log('  - Endpoint:', endpoint);
+      console.log('  - 전체 URL:', requestUrl);
+      console.log('  - 환경 변수:', process.env.NEXT_PUBLIC_API_URL || '설정되지 않음');
+      console.log('  - 개발 환경:', isDevelopment);
 
       let response;
       try {
