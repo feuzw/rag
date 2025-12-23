@@ -6,10 +6,14 @@ const nextConfig: NextConfig = {
   turbopack: {},
   /* config options here */
   async rewrites() {
-    // Vercel 환경 변수에서 API_URL 가져오기
-    // NEXT_PUBLIC_ 접두사를 사용하면 클라이언트와 서버 모두에서 접근 가능
-    // 로컬 개발 환경에서는 기본값 사용, 프로덕션에서는 Vercel 환경 변수 설정 필요
+    // EC2 또는 백엔드 서버 URL 설정
+    // 프로덕션: EC2의 공개 IP 또는 도메인 (예: http://ec2-13-125-247-202.ap-northeast-2.compute.amazonaws.com:8000)
+    // 개발: localhost:8000
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+    // rewrites는 서버 사이드에서만 작동하므로,
+    // 프로덕션에서는 실제 백엔드 서버 URL을 사용해야 함
+    console.log('API URL for rewrites:', apiUrl);
 
     return [
       {
