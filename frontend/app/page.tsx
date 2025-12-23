@@ -102,15 +102,16 @@ export default function Home() {
         (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
       // API URL 결정
-      // Mixed Content 문제 방지: HTTPS 사이트에서는 HTTPS 또는 서버 사이드 프록시 사용
+      // Mixed Content 문제 방지: HTTPS 사이트에서는 클라이언트에서 직접 HTTP 호출 불가
+      // 프로덕션에서는 항상 Next.js rewrites(/api)를 사용하여 서버 사이드 프록시 활용
       let apiBaseUrl;
-      if (process.env.NEXT_PUBLIC_API_URL) {
-        apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
-      } else if (isDevelopment) {
-        apiBaseUrl = 'http://localhost:8000';
+      if (isDevelopment) {
+        // 개발 환경: 직접 localhost 사용
+        apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       } else {
         // 프로덕션: Mixed Content 문제를 피하기 위해 Next.js rewrites 사용
         // rewrites는 서버 사이드에서 실행되므로 HTTPS → HTTP 문제 없음
+        // NEXT_PUBLIC_API_URL은 next.config.ts의 rewrites에서 사용됨
         apiBaseUrl = '/api';
       }
 
